@@ -1,0 +1,95 @@
+version: '3'
+
+networks:
+  labs:
+
+services:
+  site:
+    build:
+      context: docker/nginx
+    container_name: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html:delegated
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - labs
+
+  mysql:
+    image: mysql:5.7.29
+    container_name: mysql
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: labs
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - labs
+
+  php:
+    build:
+      context: docker/php
+    container_name: php
+    volumes:
+      - ./:/var/www/html:delegated
+    ports:
+      - "9000:9000"
+    networks:
+      - labs
+
+  composer:
+    build:
+      context: docker/composer
+    container_name: composer
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - php
+    user: laravel
+    networks:
+      - labs
+    entrypoint: ['composer', '--ignore-platform-reqs']
+
+  npm:
+    build:
+      context: docker/npm
+    container_name: npm
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['npm']
+
+  artisan:
+    build:
+      context: docker/php
+    container_name: artisan
+    volumes:
+      - ./:/var/www/html:delegated
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    user: laravel
+    entrypoint: ['php', '/var/www/html/artisan']
+    networks:
+      - labs
+
+  vue-cli:
+    build:
+      context: docker/vue-cli
+    container_name: vue-cli
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['vue']
